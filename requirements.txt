@@ -1,0 +1,13 @@
+Django>=4.2,<5
+djangorestframework
+gunicorn
+psycopg2-binary
+django-environ
+django-storages[boto3]
+boto3
+celery[redis]
+redis
+drf-spectacular
+pytest
+pytest-django
+factory-boy

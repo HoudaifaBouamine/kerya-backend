@@ -1,0 +1,29 @@
+services:
+  web:
+    environment:
+      - DJANGO_DEBUG=True
+    ports:
+      - "9900:8000" # Django dev server
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  minio:
+    ports:
+      - "9901:9000"    # MinIO API
+      - "9902:9001"    # MinIO Console
+
+  redis:
+    ports:
+      - "9903:6379" # Redis
+
+  pgadmin:
+    ports:
+      - "9904:80" # pgAdmin
+  
+  db:
+    ports:
+      - "9905:5432" # Postgres
+
+  celery:
+    command: celery -A kerya.celery worker --loglevel=info

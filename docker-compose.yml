@@ -1,0 +1,71 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kerya-web:local
+    env_file:
+      - .env
+    ports:
+      - "9900:8000" # Django app (prod + dev)
+    depends_on:
+      - db
+      - redis
+      - minio
+    volumes:
+      - .:/app     # overridden in prod to not mount
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    # No port mapping in base (prod won't expose)
+
+  pgadmin:
+    image: dpage/pgadmin4
+    env_file:
+      - .env
+    restart: unless-stopped
+    # No port mapping in base (prod won't expose)
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    # No port mapping in base (prod won't expose)
+
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    command: server /data
+    ports:
+      - "9901:9000" # MinIO API (prod + dev)
+      - "9902:9001" # MinIO console (prod + dev)
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

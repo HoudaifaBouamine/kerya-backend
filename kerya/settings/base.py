@@ -22,7 +22,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Your apps here
+    
+    # Third-party
+
+    'rest_framework',
+    
+    # Local apps
+    'forecasts',
+
+
 ]
 
 # Middleware

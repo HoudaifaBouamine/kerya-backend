@@ -3,16 +3,32 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: kerya-web:local
     env_file:
       - .env
+    ports:
+      - "9900:8000"
+    command: gunicorn kerya.wsgi:application --bind 0.0.0.0:8000 --workers ${WEB_CONCURRENCY}
     volumes:
       - static_volume:/app/static
-    command: gunicorn kerya.wsgi:application --bind 0.0.0.0:8000 --workers ${WEB_CONCURRENCY}
-    restart: always
     depends_on:
       - db
       - redis
       - minio
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.celery
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+    restart: unless-stopped
 
   nginx:
     image: nginx:stable-alpine

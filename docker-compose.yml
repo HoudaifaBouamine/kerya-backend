@@ -1,21 +1,5 @@
 services:
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: kerya-web:local
-    env_file:
-      - .env
-    ports:
-      - "9900:8000" # Django app (prod + dev)
-    depends_on:
-      - db
-      - redis
-      - minio
-    volumes:
-      - .:/app     # overridden in prod to not mount
-    restart: unless-stopped
-
+  
   db:
     image: postgres:15
     env_file:
@@ -54,19 +38,6 @@ services:
       - "9902:9001" # MinIO console (prod + dev)
     volumes:
       - minio_data:/data
-    restart: unless-stopped
-
-  celery:
-    build:
-      context: .
-      dockerfile: Dockerfile.celery
-    env_file:
-      - .env
-    depends_on:
-      - redis
-      - db
-    volumes:
-      - .:/app
     restart: unless-stopped
 
 volumes:

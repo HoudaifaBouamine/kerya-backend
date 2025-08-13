@@ -11,3 +11,4 @@ drf-spectacular
 pytest
 pytest-django
 factory-boy
+drf_yasg

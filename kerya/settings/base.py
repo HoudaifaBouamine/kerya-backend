@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'rest_framework',
     
     # Local apps
-    'forecasts',
+    'kerya.app',
 
 
 ]

@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate, get_user_model
@@ -9,13 +9,49 @@ from drf_yasg import openapi
 import random
 
 User = get_user_model()
-
-# ----------------------------
-# Register
-# ----------------------------
 class RegisterView(generics.CreateAPIView):
+    """
+    User registration endpoint.
+    Allows new users to register with email, phone, and password.
+    """
     serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="Register a new user",
+        tags=["auth"],
+        operation_description="This endpoint allows anyone to create a new user account by providing "
+                                "an email, phone number, and password. The response contains the created user data.",
+        request_body=RegisterSerializer,
+        responses={
+            201: openapi.Response(
+                description="User successfully registered",
+                examples={
+                    "application/json": {
+                        "id": 1,
+                        "email": "user@example.com",
+                        "phone": "+213600000000",
+                        "is_active": True
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Validation error",
+                examples={
+                    "application/json": {
+                        "email": ["This field is required."],
+                        "password": ["Password must be at least 8 characters long."]
+                    }
+                }
+            )
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        """Custom POST method to ensure swagger schema works."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # ----------------------------
 # Login
@@ -45,8 +81,9 @@ class LoginView(APIView):
         request_body=login_request_body,
         responses={200: login_response, 400: "Invalid credentials"},
         operation_summary="Login endpoint",
+        tags=["auth"],
         operation_description="Login with either **email + password** or **phone + password**. "
-                              "Only one of `email` or `phone` should be provided."
+                                "Only one of `email` or `phone` should be provided.",
     )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -71,7 +108,26 @@ class LoginView(APIView):
 # ----------------------------
 # Logout
 # ----------------------------
+
 class LogoutView(APIView):
+    @swagger_auto_schema(
+        tags=["auth"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["refresh"],
+            properties={
+                "refresh": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="The refresh token to blacklist"
+                ),
+            },
+            example={"refresh": "your_refresh_token_here"},
+        ),
+        responses={
+            205: "Logout successful. Token blacklisted.",
+            400: "Invalid or missing token."
+        }
+    )
     def post(self, request):
         try:
             refresh_token = request.data["refresh"]
@@ -80,7 +136,6 @@ class LogoutView(APIView):
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-
 
 # ----------------------------
 # Send Phone Code
@@ -96,6 +151,7 @@ class SendPhoneCodeView(APIView):
             },
         ),
         responses={200: "Code sent successfully", 400: "Invalid phone number"},
+        tags=["auth"]
     )
     def post(self, request):
         phone = request.data.get("phone")
@@ -127,6 +183,7 @@ class VerifyPhoneView(APIView):
             },
         ),
         responses={200: "Phone verified successfully", 400: "Invalid code or phone"},
+        tags=["auth"]
     )
     def post(self, request):
         phone = request.data.get("phone")

@@ -25,6 +25,8 @@ INSTALLED_APPS = [
     
     # Third-party
     'rest_framework',
+    "rest_framework_simplejwt",
+    "phonenumber_field",
     'drf_yasg',
     
     # Local apps
@@ -98,3 +100,15 @@ MEDIA_URL = "/media/"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "app.User"
+AUTHENTICATION_BACKENDS = [
+    "kerya.app.auth_backend.EmailOrPhoneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+}

@@ -9,19 +9,19 @@ from ..models import Listing, HouseDetail, HotelDetail, EventDetail, ListingMedi
 class HouseDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = HouseDetail
-        exclude = ["listing"]
+        exclude = ["listing", "id"]
 
 
 class HotelDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = HotelDetail
-        exclude = ["listing"]
+        exclude = ["listing", "id"]
 
 
 class EventDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventDetail
-        exclude = ["listing"]
+        exclude = ["listing", "id"]
 
 
 class ListingMediaSerializer(serializers.ModelSerializer):
@@ -46,74 +46,75 @@ class BaseListingSerializer(serializers.ModelSerializer):
 
 
 class HouseCreateUpdateSerializer(BaseListingSerializer):
-    house_detail = HouseDetailSerializer()
+    detail = HouseDetailSerializer(write_only=True)
 
     class Meta(BaseListingSerializer.Meta):
-        fields = BaseListingSerializer.Meta.fields + ["house_detail"]
+        fields = BaseListingSerializer.Meta.fields + ["detail"]
 
     def create(self, validated_data):
-        detail_data = validated_data.pop("house_detail")
+        detail_data = validated_data.pop("detail")
+        # enforce correct type
+        validated_data["type"] = "house"
         listing = Listing.objects.create(**validated_data)
         HouseDetail.objects.create(listing=listing, **detail_data)
         return listing
 
     def update(self, instance, validated_data):
-        detail_data = validated_data.pop("house_detail", None)
+        detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        instance.type = "house"  # enforce type consistency
         instance.save()
         if detail_data:
-            HouseDetail.objects.update_or_create(
-                listing=instance, defaults=detail_data
-            )
+            HouseDetail.objects.update_or_create(listing=instance, defaults=detail_data)
         return instance
 
 
 class HotelCreateUpdateSerializer(BaseListingSerializer):
-    hotel_detail = HotelDetailSerializer()
+    detail = HotelDetailSerializer(write_only=True)
 
     class Meta(BaseListingSerializer.Meta):
-        fields = BaseListingSerializer.Meta.fields + ["hotel_detail"]
+        fields = BaseListingSerializer.Meta.fields + ["detail"]
 
     def create(self, validated_data):
-        detail_data = validated_data.pop("hotel_detail")
+        detail_data = validated_data.pop("detail")
+        validated_data["type"] = "hotel"
         listing = Listing.objects.create(**validated_data)
         HotelDetail.objects.create(listing=listing, **detail_data)
         return listing
 
     def update(self, instance, validated_data):
-        detail_data = validated_data.pop("hotel_detail", None)
+        detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        instance.type = "hotel"
         instance.save()
         if detail_data:
-            HotelDetail.objects.update_or_create(
-                listing=instance, defaults=detail_data
-            )
+            HotelDetail.objects.update_or_create(listing=instance, defaults=detail_data)
         return instance
 
 
 class EventCreateUpdateSerializer(BaseListingSerializer):
-    event_detail = EventDetailSerializer()
+    detail = EventDetailSerializer(write_only=True)
 
     class Meta(BaseListingSerializer.Meta):
-        fields = BaseListingSerializer.Meta.fields + ["event_detail"]
+        fields = BaseListingSerializer.Meta.fields + ["detail"]
 
     def create(self, validated_data):
-        detail_data = validated_data.pop("event_detail")
+        detail_data = validated_data.pop("detail")
+        validated_data["type"] = "event"
         listing = Listing.objects.create(**validated_data)
         EventDetail.objects.create(listing=listing, **detail_data)
         return listing
 
     def update(self, instance, validated_data):
-        detail_data = validated_data.pop("event_detail", None)
+        detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        instance.type = "event"
         instance.save()
         if detail_data:
-            EventDetail.objects.update_or_create(
-                listing=instance, defaults=detail_data
-            )
+            EventDetail.objects.update_or_create(listing=instance, defaults=detail_data)
         return instance
 
 
@@ -141,3 +142,4 @@ class ListingReadSerializer(serializers.ModelSerializer):
         elif obj.type == "event" and hasattr(obj, "event_detail"):
             return EventDetailSerializer(obj.event_detail).data
         return None
+

@@ -88,7 +88,7 @@ class ListingsService:
         ser = HouseCreateUpdateSerializer(instance=instance, data=data, partial=partial)
         ser.is_valid(raise_exception=True)
         vd = dict(ser.validated_data)
-        detail = vd.pop("house_detail", None)
+        detail = vd.pop("detail", None)
         # Enforce correct type; ignore/override incoming 'type' if present
         vd["type"] = "house"
         return vd, detail
@@ -97,7 +97,7 @@ class ListingsService:
         ser = HotelCreateUpdateSerializer(instance=instance, data=data, partial=partial)
         ser.is_valid(raise_exception=True)
         vd = dict(ser.validated_data)
-        detail = vd.pop("hotel_detail", None)
+        detail = vd.pop("detail", None)
         vd["type"] = "hotel"
         return vd, detail
 
@@ -105,23 +105,30 @@ class ListingsService:
         ser = EventCreateUpdateSerializer(instance=instance, data=data, partial=partial)
         ser.is_valid(raise_exception=True)
         vd = dict(ser.validated_data)
-        detail = vd.pop("event_detail", None)
+        detail = vd.pop("detail", None)
         vd["type"] = "event"
         return vd, detail
 
     # --- Create / Update implementations ---
 
     @transaction.atomic
-    def _create_with_detail(self, expected_type: str, listing_data: Dict, detail_data: Dict, user):
-        # Owner comes from context, never from payload
-        listing_data = {**listing_data, "owner": user, "type": expected_type}
-        try:
-            listing = Listing.objects.create(**listing_data)
-        except IntegrityError as ex:
-            # Most likely slug uniqueness or other DB constraint
-            raise ValidationError({"non_field_errors": [str(ex)]})
+    def _create_with_detail(self, type, listing_data, detail_data, user):
+        # remove unwanted keys
+        listing_data = {
+            k: v for k, v in listing_data.items()
+            if k not in ["detail", "type", "owner"]
+        }
 
-        self._create_detail(expected_type, listing, detail_data)
+        # now safe to create
+        listing = Listing.objects.create(owner=user, type=type, **listing_data)
+
+        if type == "house":
+            HouseDetail.objects.create(listing=listing, **detail_data)
+        elif type == "hotel":
+            HotelDetail.objects.create(listing=listing, **detail_data)
+        elif type == "event":
+            EventDetail.objects.create(listing=listing, **detail_data)
+
         return listing
 
     @transaction.atomic

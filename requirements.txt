@@ -10,7 +10,6 @@ django-storages[boto3]
 boto3
 celery[redis]
 redis
-drf-spectacular
 pytest
 pytest-django
 factory-boy

@@ -1,9 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .controllers import auth_controller
+from .controllers import listings_controller
 
 router = DefaultRouter()
 # router.register(r'example', exampleViewSet)
+router.register(r'listings/', listings_controller.ListingViewSet, basename='listing')
 
 auth_patterns = [
     path("register/", auth_controller.RegisterView.as_view()),

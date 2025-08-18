@@ -15,13 +15,13 @@ class Listing(models.Model):
     lat = models.FloatField()
     lng = models.FloatField()
     status = models.CharField(max_length=20, choices=[("draft","Draft"),("active","Active"),("hidden","Hidden"),("deleted","Deleted")], default="draft")
+    capacity = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 class HouseDetail(models.Model):
     listing = models.OneToOneField(Listing, on_delete=models.CASCADE, related_name="house_detail")
     house_type = models.CharField(max_length=20)  # Studio, F1..F6, etc.
-    capacity = models.IntegerField()
     rooms = models.IntegerField()
     bathrooms = models.IntegerField()
     furnished = models.BooleanField(default=False)
@@ -47,3 +47,11 @@ class EventDetail(models.Model):
     family_friendly = models.BooleanField(default=False)
     gender_preference = models.CharField(max_length=10, choices=[("mixed","Mixed"),("male","Male Only"),("female","Female Only")], default="mixed")
     contact_info = models.JSONField(default=dict)
+
+class ListingMedia(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="media")
+    media_type = models.CharField(max_length=10, choices=[("image","Image"),("video","Video")])
+    object_key = models.CharField(max_length=255)  # S3/MinIO path
+    is_primary = models.BooleanField(default=False)
+    order = models.IntegerField(default=0)

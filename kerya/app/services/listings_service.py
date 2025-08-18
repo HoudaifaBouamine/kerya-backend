@@ -1,112 +1,175 @@
-import uuid
-from django.db import transaction
-from django.db.models import Q, Min
-from django.utils.text import slugify
-from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
+# app/services/listings_service.py
+from typing import Dict, Optional
+from django.db import transaction, IntegrityError
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import ValidationError, PermissionDenied
 
-from ..models import Listing, ListingMedia
-
+from ..models import Listing, HouseDetail, HotelDetail, EventDetail
+from ..serializers import (
+    HouseCreateUpdateSerializer,
+    HotelCreateUpdateSerializer,
+    EventCreateUpdateSerializer,
+)
 
 class ListingsService:
+    """
+    Service layer for Listing CRUD with type-specific detail handling.
+    Returns model instances / querysets; controllers handle serialization.
+    """
 
-    @staticmethod
-    def list_listings(filters: dict):
-        """Return filtered listings."""
-        qs = Listing.objects.exclude(status="deleted")
+    # ---------- Public API used by controllers ----------
 
-        # Filtering
-        if "type" in filters:
-            qs = qs.filter(type=filters["type"])
+    def create_house(self, data: Dict, user):
+        validated_list, detail = self._validate_house_payload(data, partial=False)
+        return self._create_with_detail("house", validated_list, detail, user)
 
-        if "wilaya" in filters:
-            qs = qs.filter(wilaya__iexact=filters["wilaya"])
+    def update_house(self, listing_id, data: Dict, user):
+        listing = self._get_owned_listing_or_403(listing_id, user, expected_type="house")
+        validated_list, detail = self._validate_house_payload(data, partial=True, instance=listing)
+        return self._update_with_detail(listing, validated_list, detail, "house")
 
-        if "municipality" in filters:
-            qs = qs.filter(municipality__iexact=filters["municipality"])
+    def create_hotel(self, data: Dict, user):
+        validated_list, detail = self._validate_hotel_payload(data, partial=False)
+        return self._create_with_detail("hotel", validated_list, detail, user)
 
-        if "min_price" in filters:
-            qs = qs.filter(min_price__gte=filters["min_price"])
+    def update_hotel(self, listing_id, data: Dict, user):
+        listing = self._get_owned_listing_or_403(listing_id, user, expected_type="hotel")
+        validated_list, detail = self._validate_hotel_payload(data, partial=True, instance=listing)
+        return self._update_with_detail(listing, validated_list, detail, "hotel")
 
-        if "max_price" in filters:
-            qs = qs.filter(min_price__lte=filters["max_price"])
+    def create_event(self, data: Dict, user):
+        validated_list, detail = self._validate_event_payload(data, partial=False)
+        return self._create_with_detail("event", validated_list, detail, user)
 
-        return qs
+    def update_event(self, listing_id, data: Dict, user):
+        listing = self._get_owned_listing_or_403(listing_id, user, expected_type="event")
+        validated_list, detail = self._validate_event_payload(data, partial=True, instance=listing)
+        return self._update_with_detail(listing, validated_list, detail, "event")
 
-    @staticmethod
-    def get_listing(pk: uuid.UUID) -> Listing:
-        """Retrieve a single listing by ID."""
-        try:
-            return Listing.objects.get(pk=pk, status__in=["draft", "active", "hidden"])
-        except ObjectDoesNotExist:
-            raise ObjectDoesNotExist(f"Listing {pk} not found")
+    def get_listings(self, filters: Optional[Dict] = None):
+        """
+        Returns a queryset (controllers serialize with ListingReadSerializer).
+        Default excludes status='deleted' unless explicitly asked for.
+        """
+        qs = (Listing.objects
+              .select_related("house_detail", "hotel_detail", "event_detail", "owner")
+              .prefetch_related("media")
+              .all())
 
-    @staticmethod
-    @transaction.atomic
-    def create_listing(user, data: dict) -> Listing:
-        """Create a new listing and auto-generate slug."""
-        slug_base = slugify(data["title"])
-        slug = slug_base
-        counter = 1
-        while Listing.objects.filter(slug=slug).exists():
-            slug = f"{slug_base}-{counter}"
-            counter += 1
+        filters = filters or {}
+        include_deleted = filters.pop("include_deleted", False)
+        if not include_deleted:
+            qs = qs.exclude(status="deleted")
 
-        listing = Listing.objects.create(
-            owner=user,
-            slug=slug,
-            status="draft",  # always starts in draft
-            **data
-        )
+        if filters:
+            qs = qs.filter(**filters)
+        return qs.order_by("-created_at")
+
+    def get_listing_by_id(self, listing_id):
+        return (Listing.objects
+                .select_related("house_detail", "hotel_detail", "event_detail", "owner")
+                .prefetch_related("media")
+                .get(pk=listing_id))
+
+    # ---------- Internal helpers ----------
+
+    def _get_owned_listing_or_403(self, listing_id, user, expected_type: Optional[str] = None) -> Listing:
+        listing = get_object_or_404(Listing, pk=listing_id)
+        if expected_type and listing.type != expected_type:
+            raise ValidationError({"type": [f"Listing is '{listing.type}', expected '{expected_type}' for this endpoint."]})
+        if listing.owner_id != getattr(user, "id", None):
+            # If you want admins to bypass, add a check here (e.g., user.is_staff).
+            raise PermissionDenied("You do not have permission to modify this listing.")
         return listing
 
-    @staticmethod
+    # --- Validation splitters (use your serializers just for validation) ---
+
+    def _validate_house_payload(self, data, partial: bool, instance: Optional[Listing] = None):
+        ser = HouseCreateUpdateSerializer(instance=instance, data=data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        vd = dict(ser.validated_data)
+        detail = vd.pop("house_detail", None)
+        # Enforce correct type; ignore/override incoming 'type' if present
+        vd["type"] = "house"
+        return vd, detail
+
+    def _validate_hotel_payload(self, data, partial: bool, instance: Optional[Listing] = None):
+        ser = HotelCreateUpdateSerializer(instance=instance, data=data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        vd = dict(ser.validated_data)
+        detail = vd.pop("hotel_detail", None)
+        vd["type"] = "hotel"
+        return vd, detail
+
+    def _validate_event_payload(self, data, partial: bool, instance: Optional[Listing] = None):
+        ser = EventCreateUpdateSerializer(instance=instance, data=data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        vd = dict(ser.validated_data)
+        detail = vd.pop("event_detail", None)
+        vd["type"] = "event"
+        return vd, detail
+
+    # --- Create / Update implementations ---
+
     @transaction.atomic
-    def update_listing(user, pk: uuid.UUID, data: dict) -> Listing:
-        """Update an existing listing (owner only)."""
+    def _create_with_detail(self, expected_type: str, listing_data: Dict, detail_data: Dict, user):
+        # Owner comes from context, never from payload
+        listing_data = {**listing_data, "owner": user, "type": expected_type}
         try:
-            listing = Listing.objects.get(pk=pk)
-        except ObjectDoesNotExist:
-            raise ObjectDoesNotExist(f"Listing {pk} not found")
+            listing = Listing.objects.create(**listing_data)
+        except IntegrityError as ex:
+            # Most likely slug uniqueness or other DB constraint
+            raise ValidationError({"non_field_errors": [str(ex)]})
 
-        if listing.owner != user:
-            raise PermissionDenied("You do not own this listing")
-
-        for field, value in data.items():
-            setattr(listing, field, value)
-
-        listing.save()
+        self._create_detail(expected_type, listing, detail_data)
         return listing
 
-    @staticmethod
     @transaction.atomic
-    def delete_listing(user, pk: uuid.UUID):
-        """Soft delete a listing (owner only)."""
-        try:
-            listing = Listing.objects.get(pk=pk)
-        except ObjectDoesNotExist:
-            raise ObjectDoesNotExist(f"Listing {pk} not found")
+    def _update_with_detail(self, listing: Listing, listing_data: Dict, detail_data: Optional[Dict], expected_type: str):
+        # Never allow type/owner changes here
+        listing_data.pop("owner", None)
+        listing_data.pop("type", None)
 
-        if listing.owner != user:
-            raise PermissionDenied("You do not own this listing")
+        # Apply scalar fields
+        dirty = False
+        for k, v in listing_data.items():
+            if getattr(listing, k) != v:
+                setattr(listing, k, v)
+                dirty = True
+        if dirty:
+            try:
+                listing.save()
+            except IntegrityError as ex:
+                raise ValidationError({"non_field_errors": [str(ex)]})
 
-        listing.status = "deleted"
-        listing.save(update_fields=["status"])
+        # Upsert detail if provided
+        if detail_data is not None:
+            self._upsert_detail(expected_type, listing, detail_data)
 
-    @staticmethod
-    @transaction.atomic
-    def add_media(user, pk: uuid.UUID, data: dict) -> ListingMedia:
-        """Add media to listing (owner only)."""
-        try:
-            listing = Listing.objects.get(pk=pk)
-        except ObjectDoesNotExist:
-            raise ObjectDoesNotExist(f"Listing {pk} not found")
+        # Reload relations so controllers serialize fresh values
+        return (Listing.objects
+                .select_related("house_detail", "hotel_detail", "event_detail", "owner")
+                .prefetch_related("media")
+                .get(pk=listing.pk))
 
-        if listing.owner != user:
-            raise PermissionDenied("You do not own this listing")
+    # --- Detail creators/updaters ---
 
-        # Ensure only one primary
-        if data.get("is_primary", False):
-            ListingMedia.objects.filter(listing=listing, is_primary=True).update(is_primary=False)
+    def _create_detail(self, expected_type: str, listing: Listing, detail: Dict):
+        if expected_type == "house":
+            HouseDetail.objects.create(listing=listing, **detail)
+        elif expected_type == "hotel":
+            HotelDetail.objects.create(listing=listing, **detail)
+        elif expected_type == "event":
+            EventDetail.objects.create(listing=listing, **detail)
+        else:
+            raise ValidationError({"type": [f"Unsupported type '{expected_type}'"]})
 
-        media = ListingMedia.objects.create(listing=listing, **data)
-        return media
+    def _upsert_detail(self, expected_type: str, listing: Listing, detail: Dict):
+        if expected_type == "house":
+            HouseDetail.objects.update_or_create(listing=listing, defaults=detail)
+        elif expected_type == "hotel":
+            HotelDetail.objects.update_or_create(listing=listing, defaults=detail)
+        elif expected_type == "event":
+            EventDetail.objects.update_or_create(listing=listing, defaults=detail)
+        else:
+            raise ValidationError({"type": [f"Unsupported type '{expected_type}'"]})

@@ -103,8 +103,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "app.User"
 AUTHENTICATION_BACKENDS = [
-    "kerya.app.auth_backend.EmailOrPhoneBackend",
-    "django.contrib.auth.backends.ModelBackend",
+    "kerya.app.auth_backend.EmailBackend",
+    "kerya.app.auth_backend.PhoneBackend",
+    "django.contrib.auth.backends.ModelBackend", # for super users /admin
 ]
 
 REST_FRAMEWORK = {

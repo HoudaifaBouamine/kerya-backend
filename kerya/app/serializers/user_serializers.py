@@ -3,16 +3,32 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+# ------------------------
+# Register
+# ------------------------
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = ("id", "email", "phone_number", "password")
+        read_only_fields = ("id",)
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
-    
+
+
+# Response serializer (hide password in output)
+class RegisterResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "email", "phone_number", "is_active")
+        read_only_fields = ("id", "email", "phone_number", "is_active")
+
+
+# ------------------------
+# Login
+# ------------------------
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     phone = serializers.CharField(required=False)
@@ -31,6 +47,30 @@ class LoginSerializer(serializers.Serializer):
                 "You must provide either email OR phone, not both."
             )
 
-        attrs["username"] = email or phone  # unify for authenticate()
+        attrs["username"] = email or phone
         return attrs
 
+
+# Login response (JWT tokens)
+class LoginResponseSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+    access = serializers.CharField()
+
+
+# ------------------------
+# Logout
+# ------------------------
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+# ------------------------
+# Phone Verification
+# ------------------------
+class SendPhoneCodeSerializer(serializers.Serializer):
+    phone = serializers.CharField()
+
+
+class VerifyPhoneSerializer(serializers.Serializer):
+    phone = serializers.CharField()
+    code = serializers.CharField()

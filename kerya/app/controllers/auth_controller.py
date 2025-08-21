@@ -3,87 +3,52 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-from ..serializers.user_serializers import RegisterSerializer, LoginSerializer
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-import random
+
+from ..serializers.user_serializers import (
+    RegisterSerializer,
+    RegisterResponseSerializer,
+    LoginSerializer,
+    LoginResponseSerializer,
+    LogoutSerializer,
+    SendPhoneCodeSerializer,
+    VerifyPhoneSerializer,
+)
 
 User = get_user_model()
+
+
+# ----------------------------
+# Register
+# ----------------------------
 class RegisterView(generics.CreateAPIView):
-    """
-    User registration endpoint.
-    Allows new users to register with email, phone, and password.
-    """
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
     @swagger_auto_schema(
         operation_summary="Register a new user",
         tags=["auth"],
-        operation_description="This endpoint allows anyone to create a new user account by providing "
-                                "an email, phone number, and password. The response contains the created user data.",
         request_body=RegisterSerializer,
-        responses={
-            201: openapi.Response(
-                description="User successfully registered",
-                examples={
-                    "application/json": {
-                        "id": 1,
-                        "email": "user@example.com",
-                        "phone": "+213600000000",
-                        "is_active": True
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="Validation error",
-                examples={
-                    "application/json": {
-                        "email": ["This field is required."],
-                        "password": ["Password must be at least 8 characters long."]
-                    }
-                }
-            )
-        }
+        responses={201: RegisterResponseSerializer},
     )
     def post(self, request, *args, **kwargs):
-        """Custom POST method to ensure swagger schema works."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(RegisterResponseSerializer(user).data, status=status.HTTP_201_CREATED)
+
 
 # ----------------------------
 # Login
 # ----------------------------
-login_request_body = openapi.Schema(
-    type=openapi.TYPE_OBJECT,
-    properties={
-        'email': openapi.Schema(type=openapi.TYPE_STRING, description='Email of the user'),
-        'phone': openapi.Schema(type=openapi.TYPE_STRING, description='Phone number (if logging in with phone)'),
-        'password': openapi.Schema(type=openapi.TYPE_STRING, description='User password'),
-    },
-    required=['password'],
-)
-
-login_response = openapi.Response(
-    description="Successful login response",
-    examples={
-        "application/json": {
-            "refresh": "refresh_token_here",
-            "access": "access_token_here"
-        }
-    }
-)
-
 class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     @swagger_auto_schema(
-        request_body=login_request_body,
-        responses={200: login_response, 400: "Invalid credentials"},
-        operation_summary="Login endpoint",
+        operation_summary="Login with email or phone",
         tags=["auth"],
-        operation_description="Login with either **email + password** or **phone + password**. "
-                                "Only one of `email` or `phone` should be provided.",
+        request_body=LoginSerializer,
+        responses={200: LoginResponseSerializer, 400: "Invalid credentials"},
     )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -99,70 +64,57 @@ class LoginView(APIView):
             return Response({"detail": "Invalid credentials"}, status=400)
 
         refresh = RefreshToken.for_user(user)
-        return Response({
+        return Response(LoginResponseSerializer({
             "refresh": str(refresh),
             "access": str(refresh.access_token),
-        })
+        }).data)
 
 
 # ----------------------------
 # Logout
 # ----------------------------
-
 class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     @swagger_auto_schema(
         tags=["auth"],
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["refresh"],
-            properties={
-                "refresh": openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    description="The refresh token to blacklist"
-                ),
-            },
-            example={"refresh": "your_refresh_token_here"},
-        ),
-        responses={
-            205: "Logout successful. Token blacklisted.",
-            400: "Invalid or missing token."
-        }
+        operation_summary="Logout (blacklist refresh token)",
+        request_body=LogoutSerializer,
+        responses={205: "Logout successful", 400: "Invalid or missing token"},
     )
     def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
+            token = RefreshToken(serializer.validated_data["refresh"])
             token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+
 # ----------------------------
 # Send Phone Code
 # ----------------------------
 class SendPhoneCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     @swagger_auto_schema(
-        operation_description="Send a verification code to the provided phone number",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["phone"],
-            properties={
-                "phone": openapi.Schema(type=openapi.TYPE_STRING, description="Phone number to send the code"),
-            },
-        ),
+        tags=["auth"],
+        operation_summary="Send phone verification code",
+        request_body=SendPhoneCodeSerializer,
         responses={200: "Code sent successfully", 400: "Invalid phone number"},
-        tags=["auth"]
     )
     def post(self, request):
-        phone = request.data.get("phone")
-        if not phone:
-            return Response({"error": "Phone number is required"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = SendPhoneCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        # Generate a random 6-digit code
+        phone = serializer.validated_data["phone"]
+
+        # TODO: send actual SMS
+        import random
         code = str(random.randint(100000, 999999))
-
-        # TODO: Save this code in DB/Redis/cache for verification
-        # TODO: Integrate with SMS provider (Twilio, etc.)
         print(f"DEBUG: Verification code for {phone} is {code}")
 
         return Response({"message": f"Verification code sent to {phone}"}, status=status.HTTP_200_OK)
@@ -172,28 +124,22 @@ class SendPhoneCodeView(APIView):
 # Verify Phone
 # ----------------------------
 class VerifyPhoneView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     @swagger_auto_schema(
-        operation_description="Verify phone number with the code received via SMS",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["phone", "code"],
-            properties={
-                "phone": openapi.Schema(type=openapi.TYPE_STRING, description="Phone number to verify"),
-                "code": openapi.Schema(type=openapi.TYPE_STRING, description="Verification code"),
-            },
-        ),
+        tags=["auth"],
+        operation_summary="Verify phone number",
+        request_body=VerifyPhoneSerializer,
         responses={200: "Phone verified successfully", 400: "Invalid code or phone"},
-        tags=["auth"]
     )
     def post(self, request):
-        phone = request.data.get("phone")
-        code = request.data.get("code")
+        serializer = VerifyPhoneSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not phone or not code:
-            return Response({"error": "Phone and code are required"}, status=status.HTTP_400_BAD_REQUEST)
+        phone = serializer.validated_data["phone"]
+        code = serializer.validated_data["code"]
 
-        # TODO: Retrieve code from DB/Redis/cache and compare
-        if code != "123456":  # placeholder check
+        if code != "123456":  # TODO: replace with real verification
             return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:

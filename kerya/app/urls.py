@@ -14,7 +14,8 @@ router.register(r"listings", ListingViewSet, basename="listings")
 
 auth_patterns = [
     path("register/", auth_controller.RegisterView.as_view()),
-    path("login/", auth_controller.LoginView.as_view()),
+    path("login/email/", auth_controller.EmailLoginView.as_view()),
+    path("login/phone/", auth_controller.PhoneLoginView.as_view()),
     path("logout/", auth_controller.LogoutView.as_view()),
     path("send-phone-code/", auth_controller.SendPhoneCodeView.as_view()),
     path("verify-phone/", auth_controller.VerifyPhoneView.as_view()),

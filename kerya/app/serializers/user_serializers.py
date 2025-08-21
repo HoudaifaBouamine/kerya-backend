@@ -29,28 +29,35 @@ class RegisterResponseSerializer(serializers.ModelSerializer):
 # ------------------------
 # Login
 # ------------------------
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False)
-    phone = serializers.CharField(required=False)
+# class LoginSerializer(serializers.Serializer):
+#     email = serializers.EmailField(required=False)
+#     phone = serializers.CharField(required=False)
+#     password = serializers.CharField(write_only=True)
+
+#     def validate(self, attrs):
+#         email = attrs.get("email")
+#         phone = attrs.get("phone")
+#         password = attrs.get("password")
+
+#         if not password:
+#             raise serializers.ValidationError("Password is required")
+
+#         if bool(email) == bool(phone):  # both filled or both empty
+#             raise serializers.ValidationError(
+#                 "You must provide either email OR phone, not both."
+#             )
+
+#         attrs["username"] = email or phone
+#         return attrs
+
+class EmailLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
-    def validate(self, attrs):
-        email = attrs.get("email")
-        phone = attrs.get("phone")
-        password = attrs.get("password")
-
-        if not password:
-            raise serializers.ValidationError("Password is required")
-
-        if bool(email) == bool(phone):  # both filled or both empty
-            raise serializers.ValidationError(
-                "You must provide either email OR phone, not both."
-            )
-
-        attrs["username"] = email or phone
-        return attrs
-
-
+class PhoneLoginSerializer(serializers.Serializer):
+    phone = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+    
 # Login response (JWT tokens)
 class LoginResponseSerializer(serializers.Serializer):
     refresh = serializers.CharField()

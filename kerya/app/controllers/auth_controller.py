@@ -4,11 +4,14 @@ from rest_framework.views import APIView
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from ..serializers.user_serializers import (
+    EmailLoginSerializer,
+    PhoneLoginSerializer,
     RegisterSerializer,
     RegisterResponseSerializer,
-    LoginSerializer,
+    # LoginSerializer,
     LoginResponseSerializer,
     LogoutSerializer,
     SendPhoneCodeSerializer,
@@ -41,23 +44,93 @@ class RegisterView(generics.CreateAPIView):
 # ----------------------------
 # Login
 # ----------------------------
-class LoginView(APIView):
+# class LoginView(APIView):
+#     permission_classes = [permissions.AllowAny]
+
+#     @swagger_auto_schema(
+#         operation_summary="Login with email or phone",
+#         tags=["auth"],
+#         # request_body=LoginSerializer,
+#         request_body=openapi.Schema(
+#             type=openapi.TYPE_OBJECT,
+#             properties={
+#                 "email": openapi.Schema(type=openapi.TYPE_STRING, example="admin@gmail.com"),
+#                 "phone": openapi.Schema(type=openapi.TYPE_STRING, example="+213675706769"),
+#                 "password": openapi.Schema(type=openapi.TYPE_STRING, example="admin"),
+#             },
+#             required=["email", "password"]
+#         ),
+#         responses={200: LoginResponseSerializer, 400: "Invalid credentials"},
+#     )
+#     def post(self, request):
+#         serializer = LoginSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         user = authenticate(
+#             request,
+#             username=serializer.validated_data["username"],
+#             password=serializer.validated_data["password"],
+#         )
+
+#         if not user:
+#             return Response({"detail": "Invalid credentials"}, status=400)
+
+#         refresh = RefreshToken.for_user(user)
+#         return Response(LoginResponseSerializer({
+#             "refresh": str(refresh),
+#             "access": str(refresh.access_token),
+#         }).data)
+
+class EmailLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     @swagger_auto_schema(
-        operation_summary="Login with email or phone",
+        operation_summary="Login with email",
         tags=["auth"],
-        request_body=LoginSerializer,
+        request_body=EmailLoginSerializer,
         responses={200: LoginResponseSerializer, 400: "Invalid credentials"},
     )
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        serializer = EmailLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = authenticate(
             request,
-            username=serializer.validated_data["username"],
+            username=serializer.validated_data["email"],  # Django’s default USERNAME_FIELD
             password=serializer.validated_data["password"],
+        )
+
+        if not user:
+            return Response({"detail": "Invalid credentials"}, status=400)
+
+        refresh = RefreshToken.for_user(user)
+        return Response(LoginResponseSerializer({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }).data)
+
+
+class PhoneLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="Login with phone",
+        tags=["auth"],
+        request_body=PhoneLoginSerializer,
+        responses={200: LoginResponseSerializer, 400: "Invalid credentials"},
+    )
+    def post(self, request):
+        serializer = PhoneLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        phone = serializer.validated_data["phone"]
+        password = serializer.validated_data["password"]
+
+        # authenticate() expects "username", so we normalize
+        user = authenticate(
+            request,
+            username=phone,
+            password=password,
         )
 
         if not user:

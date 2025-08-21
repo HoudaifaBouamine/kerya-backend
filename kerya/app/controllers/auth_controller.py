@@ -94,10 +94,13 @@ class EmailLoginView(APIView):
         serializer = EmailLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
+
         user = authenticate(
             request,
-            username=serializer.validated_data["email"],  # Django’s default USERNAME_FIELD
-            password=serializer.validated_data["password"],
+            email=email,
+            password=password
         )
 
         if not user:
@@ -129,7 +132,7 @@ class PhoneLoginView(APIView):
         # authenticate() expects "username", so we normalize
         user = authenticate(
             request,
-            username=phone,
+            phone=phone,
             password=password,
         )
 
@@ -216,7 +219,7 @@ class VerifyPhoneView(APIView):
             return Response({"error": "Invalid verification code"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user = User.objects.get(phone_number=phone)
+            user = User.objects.get(phone=phone)
             user.is_phone_verified = True
             user.save()
             return Response({"message": "Phone verified successfully"}, status=status.HTTP_200_OK)

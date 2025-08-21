@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('last_login', models.DateTimeField(blank=True, null=True, verbose_name='last login')),
                 ('is_superuser', models.BooleanField(default=False, help_text='Designates that this user has all permissions without explicitly assigning them.', verbose_name='superuser status')),
                 ('email', models.EmailField(blank=True, max_length=254, null=True, unique=True)),
-                ('phone_number', phonenumber_field.modelfields.PhoneNumberField(blank=True, max_length=128, null=True, region=None, unique=True)),
+                ('phone', phonenumber_field.modelfields.PhoneNumberField(blank=True, max_length=128, null=True, region=None, unique=True)),
                 ('is_phone_verified', models.BooleanField(default=False)),
                 ('is_email_verified', models.BooleanField(default=False)),
                 ('role', models.CharField(choices=[('visitor', 'Visitor'), ('host', 'Host'), ('admin', 'Admin')], default='visitor', max_length=20)),

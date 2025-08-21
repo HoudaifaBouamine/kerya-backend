@@ -4,11 +4,11 @@ from .models.user import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ("id", "email", "phone_number", "role", "is_active")
-    search_fields = ("email", "phone_number")
+    list_display = ("id", "email", "phone", "role", "is_active")
+    search_fields = ("email", "phone")
     ordering = ("email",)
     fieldsets = (
-        (None, {"fields": ("email", "phone_number", "password")}),
+        (None, {"fields": ("email", "phone", "password")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser", "role")}),
         ("Verification", {"fields": ("is_phone_verified", "is_email_verified")}),
     )

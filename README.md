@@ -16,7 +16,7 @@
 
 ---
 
-## Quick facts (TL;DR)
+## Dev & Prod Quick Overview
 
 * Dev: Django app runs locally (not in Docker) to maximize developer experience. BaaS (Postgres, Redis, MinIO, pgAdmin) run in Docker during development via `docker-compose.override.yml`.
 * Prod: Django (`web`) and `celery` are built and run inside Docker when you explicitly merge `docker-compose.prod.yml` with the base compose file.
@@ -80,16 +80,13 @@ All the ports are mapped on the dev and only nginx is mapped on the prod
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # if you provide an example; otherwise create .env manually
+cp .env.example .env
 ```
-
-Example DB\_URL when using mapped port: `postgres://kerya:kerya@localhost:9905/kerya_db`
 
 ### 3) Run migrations and create superuser
 
 ```bash
 python manage.py migrate
-python manage.py collectstatic --noinput    # optional in dev
 python manage.py createsuperuser
 ```
 
@@ -115,7 +112,7 @@ docker compose logs -f
 
 # Production deployment guide
 
-Production runs Django `web` and `celery` in Docker images using `docker-compose.prod.yml` merged explicitly with base compose.
+Production runs all the previous BaaS (without port binging to localhost) in addition to Django `web`, `celery` and `nginx` in Docker images using `docker-compose.prod.yml` merged explicitly with base compose.
 
 ### 1) Prepare production environment
 
@@ -125,10 +122,16 @@ Production runs Django `web` and `celery` in Docker images using `docker-compose
 
 ### 2) Example commands (build + run)
 
+Start by building `web` and `celery`, and running the other containers
 ```bash
 # from project root: build and run prod stack
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
 
+next time you can just run the stack without rebuilding (remove the --build)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 Notes:
@@ -149,47 +152,17 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml restart celery
 ### 4) Logging & monitoring (practical)
 
 * Stream logs: `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f web`.
-* Keep `DEBUG=False` and configure `ALLOWED_HOSTS` strictly.
-* todo: Add Sentry for bug monitoring.
-
-### 5) Backups & maintenance
-
-* Postgres: schedule `pg_dump` to a safe storage or use managed DB backups.
-* MinIO: enable versioning or snapshot underlying volume.
-* Rotate secrets regularly and use an environment-specific `.env` or secret manager.
-
----
+* __todo__: Add Sentry for bug monitoring.
 
 # Settings & environment differences
 
 * `kerya/settings/dev.py`: local developer configuration (DEBUG=True, local databases, useful logging).
-* `kerya/settings/prod.py`: production configuration (DEBUG=False, secure settings, S3/MinIO endpoints using internal docker hostnames: `minio:9000`).
-
-Make sure your `.env` and `settings` agree on whether services are addressed by Docker hostnames (e.g. `db`, `redis`, `minio`) vs. `localhost:9905` mapped ports.
+* `kerya/settings/prod.py`: production configuration (DEBUG=False, secure settings, S3/MinIO endpoints using internal docker hostnames and ports, e.g. `db:5432` instead of `localhost:9905`).
 
 ---
 
 # Troubleshooting
 
 * **DB connection refused**: ensure Postgres container is healthy (`docker compose ps`) and your `.env` contains correct host/port. In dev, use mapped port `9905` or use `db:5432` if running Django inside Docker network.
-* **Static files 404 in prod**: ensure `collectstatic` ran and `static_volume` is mounted into `nginx` container.
-* **Celery tasks not running**: check Redis connectivity and Celery logs; start worker manually to reproduce task failures.
-* **MinIO permission errors**: double-check `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` and bucket policies.
 
 ---
-
-# Common commands cheat-sheet
-
-```bash
-# dev infra
-docker compose up -d
-
-# stop infra
-docker compose down
-
-# build prod and run (build only web app and celery service)
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-
-# run one-off commands in prod web image
-docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm web python manage.py migrate
-```

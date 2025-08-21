@@ -42,7 +42,7 @@ class BaseListingSerializer(serializers.ModelSerializer):
             "wilaya", "municipality", "postal_code", "lat", "lng",
             "status", "capacity"
         ]
-        read_only_fields = ["id", "owner"]
+        read_only_fields = ["id", "owner", "type"]
 
 
 class HouseCreateUpdateSerializer(BaseListingSerializer):
@@ -53,7 +53,6 @@ class HouseCreateUpdateSerializer(BaseListingSerializer):
 
     def create(self, validated_data):
         detail_data = validated_data.pop("detail")
-        # enforce correct type
         validated_data["type"] = "house"
         listing = Listing.objects.create(**validated_data)
         HouseDetail.objects.create(listing=listing, **detail_data)
@@ -63,7 +62,6 @@ class HouseCreateUpdateSerializer(BaseListingSerializer):
         detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.type = "house"  # enforce type consistency
         instance.save()
         if detail_data:
             HouseDetail.objects.update_or_create(listing=instance, defaults=detail_data)
@@ -87,7 +85,6 @@ class HotelCreateUpdateSerializer(BaseListingSerializer):
         detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.type = "hotel"
         instance.save()
         if detail_data:
             HotelDetail.objects.update_or_create(listing=instance, defaults=detail_data)
@@ -111,7 +108,6 @@ class EventCreateUpdateSerializer(BaseListingSerializer):
         detail_data = validated_data.pop("detail", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.type = "event"
         instance.save()
         if detail_data:
             EventDetail.objects.update_or_create(listing=instance, defaults=detail_data)

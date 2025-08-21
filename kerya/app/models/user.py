@@ -3,12 +3,12 @@ from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
 class UserManager(BaseUserManager):
-    def create_user(self, email=None, phone_number=None, password=None, **extra_fields):
-        if not email and not phone_number:
+    def create_user(self, email=None, phone=None, password=None, **extra_fields):
+        if not email and not phone:
             raise ValueError("User must have either an email or phone number")
 
         email = self.normalize_email(email) if email else None
-        user = self.model(email=email, phone_number=phone_number, **extra_fields)
+        user = self.model(email=email, phone=phone, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -28,7 +28,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
 
     email = models.EmailField(unique=True, null=True, blank=True)
-    phone_number = PhoneNumberField(unique=True, null=True, blank=True)
+    phone = PhoneNumberField(unique=True, null=True, blank=True)
+    username = models.CharField(max_length=150, unique=True, null=True, blank=True)  # ✅ added back
+
     is_phone_verified = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="visitor")
@@ -38,8 +40,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = "email"   # default login
-    REQUIRED_FIELDS = []
+    USERNAME_FIELD = "email"   # authentication field
+    REQUIRED_FIELDS = []       # keep empty unless you want phone/username required at createsuperuser
 
     def __str__(self):
-        return self.email or str(self.phone_number)
+        return self.username or self.email or str(self.phone)

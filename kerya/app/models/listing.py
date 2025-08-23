@@ -32,6 +32,15 @@ class Listing(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def price_per_night(self):
+        if self.type == "house" and hasattr(self, "house_detail"):
+            return self.house_detail.price_per_night
+        elif self.type == "hotel" and hasattr(self, "hotel_detail"):
+            return self.hotel_detail.price_per_night
+        else:
+            return None
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = str(self.id or uuid.uuid4())
@@ -39,6 +48,7 @@ class Listing(models.Model):
             self.slug = slugify(self.slug)
 
         super().save(*args, **kwargs)
+
 class HouseDetail(models.Model):
     listing = models.OneToOneField(Listing, on_delete=models.CASCADE, related_name="house_detail")
     house_type = models.CharField(max_length=20)  # Studio, F1..F6, etc.
@@ -56,6 +66,7 @@ class HotelDetail(models.Model):
     hotel_type = models.CharField(max_length=20)  # Hotel, Hostel, Palace
     stars = models.IntegerField(default=0)
     services = models.JSONField(default=dict)
+    price_per_night = models.DecimalField(max_digits=12, decimal_places=2)
     contact_phone = models.CharField(max_length=20)
     contact_email = models.EmailField()
 

@@ -31,7 +31,12 @@ class BookingService:
     def create_hotel_booking(self, data: Dict, user):
         validated = self._validate_payload(data, partial=False)
         listing = self._get_listing_or_404(validated["listing"].pk, expected_type="hotel")
-        return self._create_booking(validated, listing, user)
+        return self._create_hotel_booking(validated, listing, user)
+
+    def create_house_booking(self, data: Dict, user):
+        validated = self._validate_payload(data, partial=False)
+        listing = self._get_listing_or_404(validated["listing"].pk, expected_type="house")
+        return self._create_house_booking(validated, listing, user)
 
     def get_booking_by_id(self, booking_id, user, include_inactive: bool = False):
         """
@@ -52,13 +57,12 @@ class BookingService:
         return qs.order_by("-created_at")
 
     def cancel_booking(self, booking_id, user, by="guest"):
-        """
-        Cancel booking: permission is checked, then booking is cancelled.
-        We fetch with include_inactive=True to allow permission checking, but we still
-        reject cancelling an already-inactive booking in _cancel_booking.
-        """
         booking = self._get_booking_as_guest_or_host(booking_id, user, role=by, include_inactive=True)
         return self._cancel_booking(booking, by)
+    
+    def accept_house_booking(self, booking_id, user):
+        booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
+        return self._decide_booking(booking, BookingStatus.ACCEPTED)
 
     # ---------- Internal helpers ----------
 
@@ -112,7 +116,7 @@ class BookingService:
     # ---------- Create / Update / Cancel ----------
 
     @transaction.atomic
-    def _create_booking(self, validated: Dict, listing: Listing, user):
+    def _create_hotel_booking(self, validated: Dict, listing: Listing, user):
         self._check_availability(listing, validated["start_date"], validated["end_date"])
 
         booking = Booking.objects.create(
@@ -122,6 +126,21 @@ class BookingService:
             end_date=validated["end_date"],
             currency=validated.get("currency", "DZD"),
             status=BookingStatus.ACCEPTED,
+            decision_at=timezone.now(),
+            is_active=True,
+        )
+        return booking
+    
+    def _create_house_booking(self, validated: Dict, listing: Listing, user):
+        self._check_availability(listing, validated["start_date"], validated["end_date"])
+
+        booking = Booking.objects.create(
+            listing=listing,
+            guest=user,
+            start_date=validated["start_date"],
+            end_date=validated["end_date"],
+            currency=validated.get("currency", "DZD"),
+            status=BookingStatus.REQUESTED,
             decision_at=timezone.now(),
             is_active=True,
         )
@@ -167,6 +186,21 @@ class BookingService:
         # include is_active in update_fields so DB write includes it
         try:
             booking.save(update_fields=["status", "cancelled_at", "updated_at", "is_active"])
+        except IntegrityError as ex:
+            raise ValidationError({"non_field_errors": [str(ex)]})
+        return booking
+
+    @transaction.atomic
+    def _decide_booking(self, booking: Booking, decision: str):
+        # reject cancelling an already-inactive booking
+        self.ensure_active(booking)
+
+        booking.status = decision
+        booking.decision_at = timezone.now()
+        booking.is_active = decision == BookingStatus.ACCEPTED
+        # include is_active in update_fields so DB write includes it
+        try:
+            booking.save(update_fields=["status", "decision_at", "updated_at", "is_active"])
         except IntegrityError as ex:
             raise ValidationError({"non_field_errors": [str(ex)]})
         return booking

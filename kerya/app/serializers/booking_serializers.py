@@ -1,6 +1,7 @@
 # bookings/serializers.py
 from rest_framework import serializers
 from ..models import Booking, Listing,User
+from .listing_serializers import ListingReadSerializer
 
 class UserMiniSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,6 +17,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 class BookingReadSerializer(serializers.ModelSerializer):
     guest = UserMiniSerializer(read_only=True)
     host = UserMiniSerializer(read_only=True)
+    listing = ListingReadSerializer(read_only=True)
     class Meta:
         model = Booking
         fields = [

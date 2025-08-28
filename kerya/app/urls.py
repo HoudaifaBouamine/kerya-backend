@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .controllers import auth_controller
 from .controllers import HouseListingViewSet,HotelListingViewSet,EventListingViewSet,ListingViewSet
-from .controllers import HotelBookingViewSet
+from .controllers import HotelBookingViewSet, HouseBookingViewSet, BookingViewSet
 
 router = DefaultRouter()
 
@@ -14,6 +14,9 @@ router.register(r"listings/events", EventListingViewSet, basename="event-listing
 router.register(r"listings", ListingViewSet, basename="listings")
 
 router.register(r"booking/hotel", HotelBookingViewSet, basename="hotel-booking")
+router.register(r"booking/house", HouseBookingViewSet, basename="house-booking")
+router.register(r"booking", BookingViewSet, basename="generic-booking")
+
 
 auth_patterns = [
     path("register/", auth_controller.RegisterView.as_view()),

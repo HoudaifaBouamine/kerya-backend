@@ -7,13 +7,12 @@ class UserMiniSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email"]  # or whatever you want to expose
 
-
-class BookingCreateUpdateSerializer(serializers.ModelSerializer):
+class BookingCreateSerializer(serializers.ModelSerializer):
     listing = serializers.PrimaryKeyRelatedField(queryset=Listing.objects.all())
+
     class Meta:
         model = Booking
         fields = ["listing", "start_date", "end_date"]
-
 class BookingReadSerializer(serializers.ModelSerializer):
     guest = UserMiniSerializer(read_only=True)
     host = UserMiniSerializer(read_only=True)

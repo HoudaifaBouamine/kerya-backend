@@ -1,4 +1,5 @@
 # app/services/bookings_service.py
+from datetime import datetime
 from typing import Dict, Optional
 from django.db import transaction, IntegrityError
 from django.shortcuts import get_object_or_404
@@ -7,8 +8,8 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from kerya.app.models.user import User
 
-from ..models import Booking, Listing
-from ..serializers import BookingReadSerializer, BookingCreateUpdateSerializer
+from ..models import Booking, Listing, BookingStatus
+from ..serializers import BookingReadSerializer, BookingCreateSerializer
 
 
 class BookingService:
@@ -23,11 +24,6 @@ class BookingService:
         validated = self._validate_payload(data, partial=False)
         listing = self._get_listing_or_404(validated["listing"].pk, expected_type="hotel")
         return self._create_booking(validated, listing, user)
-
-    def update_hotel_booking(self, booking_id, data: Dict, user : User, by="guest"):
-        booking = self._get_booking_as_guest_or_host(booking_id, user, role=by)
-        validated = self._validate_payload(data, partial=True, instance=booking)
-        return self._update_booking(booking, validated)
 
     def get_booking_by_id(self, booking_id, user):
         return self._get_booking_as_guest_or_host(booking_id, user, role=user.role)
@@ -48,7 +44,7 @@ class BookingService:
     # ---------- Internal helpers ----------
 
     def _validate_payload(self, data, partial: bool, instance: Optional[Booking] = None):
-        ser = BookingCreateUpdateSerializer(instance=instance, data=data, partial=partial)
+        ser = BookingCreateSerializer(instance=instance, data=data, partial=partial)
         ser.is_valid(raise_exception=True)
         return dict(ser.validated_data)
 
@@ -90,7 +86,8 @@ class BookingService:
             start_date=validated["start_date"],
             end_date=validated["end_date"],
             currency=validated.get("currency", "DZD"),
-            status="requested",
+            status=BookingStatus.ACCEPTED,
+            decision_at=datetime.now(),
         )
         return booking
 
@@ -110,7 +107,7 @@ class BookingService:
 
     @transaction.atomic
     def _cancel_booking(self, booking: Booking, by: str):
-        booking.status = "cancelled_host" if by == "host" else "cancelled_guest"
-        booking.canceled_at = timezone.now()
-        booking.save(update_fields=["status", "canceled_at", "updated_at"])
+        booking.status = BookingStatus.CANCELLED_HOST if by == "host" else BookingStatus.CANCELLED_GUEST # cancelled_host / cancelled_guest
+        booking.cancelled_at = timezone.now()
+        booking.save(update_fields=["status", "cancelled_at", "updated_at"])
         return booking

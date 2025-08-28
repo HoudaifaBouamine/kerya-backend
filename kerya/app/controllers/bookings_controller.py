@@ -22,12 +22,22 @@ class HotelBookingViewSet(viewsets.ViewSet):
         return Response(BookingReadSerializer(booking).data, status=status.HTTP_201_CREATED)
 
     @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                "include_inactive",
+                openapi.IN_QUERY,
+                description="Include inactive bookings (default: false)",
+                type=openapi.TYPE_BOOLEAN,
+                required=False,
+            )
+        ],
         responses={200: BookingReadSerializer(many=True)},
         operation_summary="List Hotel Bookings (guest or host)",
     )
     def list(self, request):
         service = BookingService()
-        bookings = service.get_bookings(request.user)
+        include_inactive = request.query_params.get("include_inactive", "false").lower() == "true"
+        bookings = service.get_bookings(request.user, include_inactive=include_inactive)
         return Response(BookingReadSerializer(bookings, many=True).data)
 
     @swagger_auto_schema(
@@ -36,7 +46,8 @@ class HotelBookingViewSet(viewsets.ViewSet):
     )
     def retrieve(self, request, pk=None):
         service = BookingService()
-        booking = service.get_booking_by_id(pk, request.user)
+        include_inactive = True
+        booking = service.get_booking_by_id(pk, request.user, include_inactive=include_inactive)
         return Response(BookingReadSerializer(booking).data)
 
     @swagger_auto_schema(

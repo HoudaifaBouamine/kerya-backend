@@ -27,6 +27,7 @@ class Booking(models.Model):
     decision_at = models.DateTimeField(null=True, blank=True)  # accept/decline
     cancelled_at = models.DateTimeField(null=True, blank=True) # host or guest cancellation
     updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
     
     @property
     def nights(self):
@@ -39,5 +40,5 @@ class Booking(models.Model):
     def save(self, *args, **kwargs):
         nightly_price = self.listing.price_per_night or 0
         self.price_total = self.nights * nightly_price
-
+        self.is_active = self.status in [BookingStatus.REQUESTED, BookingStatus.ACCEPTED]
         super().save(*args, **kwargs)

@@ -33,4 +33,6 @@ class BookingReadSerializer(serializers.ModelSerializer):
             "decision_at",
             "cancelled_at",
             "updated_at",
+            "is_active",
         ]
+    read_only_fields = ["is_active"] 

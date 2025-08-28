@@ -23,6 +23,7 @@ class HouseListingViewSet(viewsets.ViewSet):
         request_body=HouseCreateUpdateSerializer,
         responses={201: ListingReadSerializer},
         operation_summary="Create House Listing",
+        tags=['Houses']
     )
     def create(self, request):
         service = ListingsService()
@@ -33,6 +34,7 @@ class HouseListingViewSet(viewsets.ViewSet):
         request_body=HouseCreateUpdateSerializer,
         responses={200: ListingReadSerializer, 404: "Not Found"},
         operation_summary="Update House Listing",
+        tags=['Houses']
     )
     def update(self, request, pk=None):
         service = ListingsService()
@@ -51,6 +53,7 @@ class HotelListingViewSet(viewsets.ViewSet):
         request_body=HotelCreateUpdateSerializer,
         responses={201: ListingReadSerializer},
         operation_summary="Create Hotel Listing",
+        tags=['Hotels']
     )
     def create(self, request):
         service = ListingsService()
@@ -61,6 +64,7 @@ class HotelListingViewSet(viewsets.ViewSet):
         request_body=HotelCreateUpdateSerializer,
         responses={200: ListingReadSerializer, 404: "Not Found"},
         operation_summary="Update Hotel Listing",
+        tags=['Hotels']
     )
     def update(self, request, pk=None):
         service = ListingsService()
@@ -79,6 +83,7 @@ class EventListingViewSet(viewsets.ViewSet):
         request_body=EventCreateUpdateSerializer,
         responses={201: ListingReadSerializer},
         operation_summary="Create Event Listing",
+        tags=['Events']
     )
     def create(self, request):
         service = ListingsService()
@@ -89,6 +94,7 @@ class EventListingViewSet(viewsets.ViewSet):
         request_body=EventCreateUpdateSerializer,
         responses={200: ListingReadSerializer, 404: "Not Found"},
         operation_summary="Update Event Listing",
+        tags=['Events']
     )
     def update(self, request, pk=None):
         service = ListingsService()
@@ -114,6 +120,7 @@ class ListingViewSet(viewsets.ViewSet):
         manual_parameters=[type_param],
         responses={200: ListingReadSerializer(many=True)},
         operation_summary="Get Listings",
+        tags=['Events', 'Hotels', 'Houses']
     )
     def list(self, request):
         filters = {}
@@ -128,6 +135,7 @@ class ListingViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         responses={200: ListingReadSerializer, 404: "Not Found"},
         operation_summary="Get Listing by ID",
+        tags=['Events', 'Hotels', 'Houses']
     )
     def retrieve(self, request, pk=None):
         service = ListingsService()

@@ -15,6 +15,7 @@ class HotelBookingViewSet(viewsets.ViewSet):
         request_body=BookingCreateSerializer,
         responses={201: BookingReadSerializer},
         operation_summary="Create Hotel Booking",
+        tags=['Hotels']
     )
     def create(self, request):
         service = BookingService()
@@ -33,6 +34,7 @@ class HotelBookingViewSet(viewsets.ViewSet):
         ],
         responses={200: BookingReadSerializer(many=True)},
         operation_summary="List Hotel Bookings (guest or host)",
+        tags=['Hotels']
     )
     def list(self, request):
         service = BookingService()
@@ -43,6 +45,7 @@ class HotelBookingViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
         responses={200: BookingReadSerializer, 404: "Not Found"},
         operation_summary="Retrieve Hotel Booking by ID",
+        tags=['Hotels']
     )
     def retrieve(self, request, pk=None):
         service = BookingService()
@@ -63,6 +66,7 @@ class HotelBookingViewSet(viewsets.ViewSet):
         ],
         responses={200: BookingReadSerializer, 403: "Forbidden", 404: "Not Found"},
         operation_summary="Cancel a Hotel Booking",
+        tags=['Hotels']
     )
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):

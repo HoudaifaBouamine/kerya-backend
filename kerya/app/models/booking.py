@@ -37,8 +37,6 @@ class Booking(models.Model):
         return self.listing.owner
 
     def save(self, *args, **kwargs):
-        self.nights = (self.end_date - self.start_date).days
-
         nightly_price = self.listing.price_per_night or 0
         self.price_total = self.nights * nightly_price
 

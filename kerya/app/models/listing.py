@@ -57,7 +57,7 @@ class HouseDetail(models.Model):
     furnished = models.BooleanField(default=False)
     amenities = models.JSONField(default=dict)  # wifi, ac, etc.
     rules = models.JSONField(default=dict)
-    price_per_night = models.DecimalField(max_digits=12, decimal_places=2)
+    price_per_night = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     min_stay = models.IntegerField(default=1)
     contract_required = models.CharField(max_length=20, choices=[("none","None"),("mandatory","Mandatory"),("optional","Optional")], default="none")
 
@@ -66,7 +66,7 @@ class HotelDetail(models.Model):
     hotel_type = models.CharField(max_length=20)  # Hotel, Hostel, Palace
     stars = models.IntegerField(default=0)
     services = models.JSONField(default=dict)
-    price_per_night = models.DecimalField(max_digits=12, decimal_places=2)
+    price_per_night = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     contact_phone = models.CharField(max_length=20)
     contact_email = models.EmailField()
 

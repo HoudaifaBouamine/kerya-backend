@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .controllers import auth_controller
 from .controllers import HouseListingViewSet,HotelListingViewSet,EventListingViewSet,ListingViewSet
+from .controllers import HotelBookingViewSet
 
 router = DefaultRouter()
 
@@ -11,6 +12,8 @@ router.register(r"listings/events", EventListingViewSet, basename="event-listing
 
 # Shared read
 router.register(r"listings", ListingViewSet, basename="listings")
+
+router.register(r"booking/hotel", HotelBookingViewSet, basename="hotel-booking")
 
 auth_patterns = [
     path("register/", auth_controller.RegisterView.as_view()),

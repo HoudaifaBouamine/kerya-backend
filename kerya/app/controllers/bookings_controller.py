@@ -47,10 +47,8 @@ class BookingViewSet(viewsets.ViewSet):
         operation_summary="List Bookings for Host Listings",
         tags=['Bookings']
     )
-    @action(detail=False, methods=["get"], url_path="host")
+    @action(detail=False, methods=["get"], url_path="host", permission_classes=[IsHost, IsAdmin])
     def host_bookings(self, request):
-        if request.user.role not in ["host", "admin"]:
-            raise PermissionDenied("Only hosts can view bookings for their listings.")
         include_inactive = request.query_params.get("include_inactive", "false").lower() == "true"
         qs = self.service.list_host_bookings(request.user, include_inactive=include_inactive)
         return Response(BookingReadSerializer(qs, many=True).data)
@@ -69,9 +67,8 @@ class BookingViewSet(viewsets.ViewSet):
         operation_summary="List Bookings for Host Listings",
         tags=['Bookings']
     )
-    def list(self, request):
-        if request.user.role != "admin":
-            raise PermissionDenied("Only admin can view all bookings.")
+    @action(detail=False, methods=["get"], url_path="admin", permission_classes=[IsAdmin])
+    def all_booking(self, request):
         qs = self.service.list_all_bookings()
         return Response(BookingReadSerializer(qs, many=True).data)
 

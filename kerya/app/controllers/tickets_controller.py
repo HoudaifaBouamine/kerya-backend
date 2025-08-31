@@ -3,6 +3,7 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from kerya.app.permissions import IsHostOrAdminOrAuthenticatedReadOnly
@@ -97,8 +98,31 @@ class EventTicketViewSet(viewsets.ViewSet):
         tags=['Tickets']
     )
     def list(self, request):
-        event_id = request.query_params.get("event_id")
-        qs = self.service.list_user_tickets(request.user, event_id)
+        if request.user.role != "admin":
+            raise PermissionDenied("Only admin can view all tickets.")
+        qs = self.service.list_all_tickets()
+        return Response(EventTicketSerializer(qs, many=True).data)
+    
+    @swagger_auto_schema(
+        responses={200: EventTicketSerializer(many=True)},
+        operation_summary="List current user's tickets",
+        tags=['Tickets']
+    )
+    @action(detail=False, methods=["get"], url_path="mine")
+    def mine(self, request):
+        qs = self.service.list_tickets_for_user(request.user)
+        return Response(EventTicketSerializer(qs, many=True).data)
+    
+    @swagger_auto_schema(
+        responses={200: EventTicketSerializer(many=True)},
+        operation_summary="List current user's tickets",
+        tags=['Tickets']
+    )
+    @action(detail=False, methods=["get"], url_path="my-events")
+    def my_events(self, request):
+        if request.user.role not in ["admin", "host"]:
+            raise PermissionDenied("Only hosts or admins can view event tickets.")
+        qs = self.service.list_tickets_for_host_events(request.user)
         return Response(EventTicketSerializer(qs, many=True).data)
 
 

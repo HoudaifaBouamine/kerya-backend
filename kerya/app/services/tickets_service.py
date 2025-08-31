@@ -68,21 +68,28 @@ class TicketsService:
         ser.is_valid(raise_exception=True)
         return ser.save()
 
-    def get_ticket(self, pk):
-        """
-        Retrieves a single ticket by its primary key.
-        """
-        return get_object_or_404(EventTicket.objects.select_related("ticket_type"), pk=pk)
+    def list_all_tickets(self):
+        """Admin only – list all tickets."""
+        return EventTicket.objects.select_related("ticket_type", "user").order_by("-created_at")
 
-    def list_user_tickets(self, user: User, event_id: Optional[str] = None):
-        """
-        Lists all tickets for a specific user, optionally filtered by event.
-        """
-        qs = EventTicket.objects.filter(user=user).select_related("ticket_type")
-        if event_id:
-            qs = qs.filter(ticket_type__event_id=event_id)
-        return qs.order_by("-created_at")
+    def list_tickets_for_user(self, user: User):
+        """Tickets booked by the given user."""
+        return EventTicket.objects.filter(user=user).select_related("ticket_type").order_by("-created_at")
 
+    def list_tickets_for_host_events(self, host: User):
+        """Tickets booked for events owned by host/admin."""
+        return EventTicket.objects.filter(
+            ticket_type__event__created_by=host  # assumes Listing has created_by=User
+        ).select_related("ticket_type", "user").order_by("-created_at")
+
+    def user_can_view_ticket(self, user: User, ticket: EventTicket) -> bool:
+        """Owner or event host/admin can view."""
+        if ticket.user_id == user.id:
+            return True
+        if user.role in ["admin", "host"] and ticket.ticket_type.event.created_by_id == user.id:
+            return True
+        return False
+    
     def use_ticket(self, ticket_id: str, user: User) -> EventTicket:
         """
         Marks a ticket as 'used'. Requires the user to have permission.

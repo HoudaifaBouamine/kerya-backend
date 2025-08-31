@@ -12,7 +12,6 @@ from .controllers import (
 )
 from .controllers import (
     EventTicketTypeViewSet,
-    EventBookingViewSet,
     EventTicketViewSet,
 )
 
@@ -31,7 +30,6 @@ router.register(r"booking", BookingViewSet, basename="generic-booking")
 
 # Tickets
 router.register(r"tickets/types", EventTicketTypeViewSet, basename="event-ticket-types")
-router.register(r"tickets/bookings", EventBookingViewSet, basename="event-bookings")
 router.register(r"tickets", EventTicketViewSet, basename="event-tickets")
 
 # Auth

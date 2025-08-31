@@ -52,63 +52,8 @@ class EventTicketType(models.Model):
         return f"{self.event.title} - {self.name}"
 
 
-class EventBookingStatus(models.TextChoices):
-    PENDING = "pending", "Pending Payment"
-    CONFIRMED = "confirmed", "Confirmed"
-    CANCELLED = "cancelled", "Cancelled"
-
-
-class EventBooking(models.Model):
-    """
-    A booking transaction that can contain multiple tickets
-    """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    event = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="event_bookings")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_bookings")
-    
-    # Booking Details
-    booking_reference = models.CharField(max_length=20, unique=True)  # Human-readable reference
-    total_tickets = models.PositiveIntegerField()
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=10, default="DZD")
-    
-    # Customer Info
-    customer_name = models.CharField(max_length=200)
-    customer_email = models.EmailField()
-    customer_phone = models.CharField(max_length=20, blank=True)
-    
-    # Status & Timestamps
-    status = models.CharField(
-        max_length=20,
-        choices=EventBookingStatus.choices,
-        default=EventBookingStatus.PENDING
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    confirmed_at = models.DateTimeField(null=True, blank=True)
-    cancelled_at = models.DateTimeField(null=True, blank=True)
-    
-    # Payment tracking
-    payment_method = models.CharField(max_length=50, blank=True)  # "card", "cash", "bank_transfer"
-    payment_reference = models.CharField(max_length=100, blank=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-    
-    def save(self, *args, **kwargs):
-        if not self.booking_reference:
-            # Generate human-readable reference: EVT-YYYYMMDD-XXXX
-            import random
-            date_part = timezone.now().strftime('%Y%m%d')
-            random_part = str(random.randint(1000, 9999))
-            self.booking_reference = f"EVT-{date_part}-{random_part}"
-        super().save(*args, **kwargs)
-    
-    def __str__(self):
-        return f"{self.booking_reference} - {self.event.title}"
-
-
 class EventTicketStatus(models.TextChoices):
+    PENDING = "pending", "Pending Payment"
     VALID = "valid", "Valid"
     USED = "used", "Used"
     CANCELLED = "cancelled", "Cancelled"
@@ -116,26 +61,31 @@ class EventTicketStatus(models.TextChoices):
 
 class EventTicket(models.Model):
     """
-    Individual ticket instance within a booking
+    Individual ticket instance for a single user
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    booking = models.ForeignKey(EventBooking, on_delete=models.CASCADE, related_name="tickets")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="event_tickets")
     ticket_type = models.ForeignKey(EventTicketType, on_delete=models.CASCADE, related_name="tickets")
+    
+    # Ticket holder info
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(max_length=200, null=True)
+    phone = models.CharField(max_length=20, null=True)
     
     # Ticket Details
     ticket_number = models.CharField(max_length=30, unique=True)  # Unique ticket identifier
     qr_code = models.CharField(max_length=100, unique=True)  # For scanning at entrance
     
-    # Ticket holder info
-    holder_name = models.CharField(max_length=200)
-    holder_email = models.EmailField(blank=True)
-    
     # Status & Usage
     status = models.CharField(
         max_length=20,
         choices=EventTicketStatus.choices,
-        default=EventTicketStatus.VALID
+        default=EventTicketStatus.PENDING
     )
+    
+    # Pricing
+    price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -145,6 +95,9 @@ class EventTicket(models.Model):
         ordering = ['created_at']
     
     def save(self, *args, **kwargs):
+        if not self.price:
+            self.price = self.ticket_type.price
+
         if not self.ticket_number:
             # Generate unique ticket number: TKT-EVENTID-XXXXXX
             import random
@@ -155,22 +108,14 @@ class EventTicket(models.Model):
         if not self.qr_code:
             # Generate QR code data
             import hashlib
-            qr_data = f"{self.ticket_number}-{self.booking.booking_reference}-{timezone.now().timestamp()}"
+            qr_data = f"{self.ticket_number}-{self.email}-{timezone.now().timestamp()}"
             self.qr_code = hashlib.sha256(qr_data.encode()).hexdigest()[:32]
-        
-        # Set holder info from booking if not set
-        if not self.holder_name and self.booking:
-            self.holder_name = self.booking.customer_name
-            self.holder_email = self.booking.customer_email
         
         super().save(*args, **kwargs)
     
     @property
     def can_be_used(self):
-        return (
-            self.status == EventTicketStatus.VALID and 
-            self.booking.status == EventBookingStatus.CONFIRMED
-        )
+        return self.status == EventTicketStatus.VALID
     
     def __str__(self):
         return f"{self.ticket_number} - {self.ticket_type.name}"

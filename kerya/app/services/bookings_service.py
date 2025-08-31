@@ -45,16 +45,31 @@ class BookingService:
         """
         return self._get_booking_as_guest_or_host(booking_id, user, role=user.role, include_inactive=include_inactive)
 
-    def get_bookings(self, user: Optional[User] = None, include_inactive: bool = False):
-        """
-        Return bookings for the given user (guest). By default filter out inactive bookings.
-        """
-        qs = Booking.objects.select_related("listing", "guest").all()
-        if user:
-            qs = qs.filter(guest=user)
+    def list_all_bookings(self):
+        """Admin only – list all bookings"""
+        return Booking.objects.select_related("listing", "guest").order_by("-created_at")
+
+    def list_guest_bookings(self, user: User, include_inactive=False):
+        qs = Booking.objects.filter(guest=user).select_related("listing", "guest")
         if not include_inactive:
             qs = qs.filter(is_active=True)
         return qs.order_by("-created_at")
+
+    def list_host_bookings(self, user: User, include_inactive=False):
+        qs = Booking.objects.filter(listing__owner=user).select_related("listing", "guest")
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        return qs.order_by("-created_at")
+
+    def user_can_view_booking(self, user: User, booking: Booking) -> bool:
+        """Allow guest, host, or admin"""
+        if booking.guest_id == user.id:
+            return True
+        if booking.listing.owner_id == user.id:
+            return True
+        if user.role == "admin":
+            return True
+        return False
 
     def cancel_booking(self, booking_id, user, by="guest"):
         booking = self._get_booking_as_guest_or_host(booking_id, user, role=by, include_inactive=True)

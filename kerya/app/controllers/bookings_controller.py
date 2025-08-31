@@ -1,13 +1,17 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from ..permissions import *
+
 
 from ..serializers import BookingCreateSerializer, BookingReadSerializer
 from ..services.bookings_service import BookingService
 
 class BookingViewSet(viewsets.ViewSet):
+    service = BookingService()
     permission_classes = [permissions.IsAuthenticated]
     @swagger_auto_schema(
         manual_parameters=[
@@ -25,11 +29,9 @@ class BookingViewSet(viewsets.ViewSet):
     )
     @action(detail=False, url_path="guest")
     def guest_bookings(self, request):
-        """Bookings where the user is guest (works for hosts too)"""
-        service = BookingService()
         include_inactive = request.query_params.get("include_inactive", "false").lower() == "true"
-        bookings = service.get_bookings(request.user, include_inactive=include_inactive)
-        return Response(BookingReadSerializer(bookings, many=True).data)
+        qs = self.service.list_guest_bookings(request.user, include_inactive=include_inactive)
+        return Response(BookingReadSerializer(qs, many=True).data)
 
     @swagger_auto_schema(
         manual_parameters=[
@@ -45,16 +47,32 @@ class BookingViewSet(viewsets.ViewSet):
         operation_summary="List Bookings for Host Listings",
         tags=['Bookings']
     )
-    @action(detail=False, url_path="host")
+    @action(detail=False, methods=["get"], url_path="host")
     def host_bookings(self, request):
-        """Bookings for listings owned by the host"""
-        service = BookingService()
+        if request.user.role not in ["host", "admin"]:
+            raise PermissionDenied("Only hosts can view bookings for their listings.")
         include_inactive = request.query_params.get("include_inactive", "false").lower() == "true"
-        bookings = service.get_bookings(request.user, include_inactive=include_inactive)
-        qs = bookings.filter(listing__owner=request.user)
-        if not include_inactive:
-            qs = qs.filter(is_active=True)
-        qs = qs.select_related("listing", "guest").order_by("-created_at")
+        qs = self.service.list_host_bookings(request.user, include_inactive=include_inactive)
+        return Response(BookingReadSerializer(qs, many=True).data)
+
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                "include_inactive",
+                openapi.IN_QUERY,
+                description="Include inactive bookings (default: false)",
+                type=openapi.TYPE_BOOLEAN,
+                required=False,
+            )
+        ],
+        responses={200: BookingReadSerializer(many=True)},
+        operation_summary="List Bookings for Host Listings",
+        tags=['Bookings']
+    )
+    def list(self, request):
+        if request.user.role != "admin":
+            raise PermissionDenied("Only admin can view all bookings.")
+        qs = self.service.list_all_bookings()
         return Response(BookingReadSerializer(qs, many=True).data)
 
 

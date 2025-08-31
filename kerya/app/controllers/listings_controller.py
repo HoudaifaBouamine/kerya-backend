@@ -2,6 +2,7 @@ from rest_framework import status, viewsets, permissions
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from kerya.app.permissions import IsHostOrAdminOrAuthenticatedReadOnly, IsHostOrAdminOrVisitorReadOnly
 
 from ..serializers import (
     HouseCreateUpdateSerializer,
@@ -17,7 +18,7 @@ from ..services.listings_service import ListingsService
 # -------------------------
 
 class HouseListingViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsHostOrAdminOrVisitorReadOnly]
 
     @swagger_auto_schema(
         request_body=HouseCreateUpdateSerializer,
@@ -47,7 +48,7 @@ class HouseListingViewSet(viewsets.ViewSet):
 # -------------------------
 
 class HotelListingViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsHostOrAdminOrVisitorReadOnly]
 
     @swagger_auto_schema(
         request_body=HotelCreateUpdateSerializer,
@@ -77,7 +78,7 @@ class HotelListingViewSet(viewsets.ViewSet):
 # -------------------------
 
 class EventListingViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsHostOrAdminOrAuthenticatedReadOnly]
 
     @swagger_auto_schema(
         request_body=EventCreateUpdateSerializer,

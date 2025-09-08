@@ -11,6 +11,9 @@ class IsHost(BasePermission):
 class IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == "admin"
+class IsHostOrAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (request.user.role == "host" or request.user.role == "admin")
 
 class IsHostOrAdminOrAuthenticatedReadOnly(BasePermission):
     def has_permission(self, request, view):

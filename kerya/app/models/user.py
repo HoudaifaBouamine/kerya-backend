@@ -22,7 +22,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = [
-        ("visitor", "Visitor"),
+        ("guest", "Guest"),
         ("host", "Host"),
         ("admin", "Admin"),
     ]
@@ -33,7 +33,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_phone_verified = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="visitor")
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="guest")
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

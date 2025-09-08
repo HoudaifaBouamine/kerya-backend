@@ -208,8 +208,6 @@ class PhoneLoginView(APIView):
 # Logout
 # ----------------------------
 class LogoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
     @swagger_auto_schema(
         tags=["auth"],
         operation_summary="Logout (JWT or Session)",

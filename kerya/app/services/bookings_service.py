@@ -71,13 +71,31 @@ class BookingService:
             return True
         return False
 
-    def cancel_booking(self, booking_id, user, by="guest"):
+    def cancel_booking(self, booking_id, user):
+        by = user.role
         booking = self._get_booking_as_guest_or_host(booking_id, user, role=by, include_inactive=True)
-        return self._cancel_booking(booking, by)
+        return booking.cancel(by=by, user=user)
     
     def accept_house_booking(self, booking_id, user):
         booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
-        return self._decide_booking(booking, BookingStatus.ACCEPTED)
+        return booking.accept()
+
+    def decline_house_booking(self, booking_id, user):
+        booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
+        return booking.decline()
+    
+    def check_in_booking(self, booking_id, user):
+        booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
+        return booking.check_in()
+    
+    def check_out_booking(self, booking_id, user):
+        booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
+        return booking.check_out()
+    
+    def no_show_booking(self, booking_id, user):
+        booking = self._get_booking_as_guest_or_host(booking_id, user, role="host", include_inactive=True)
+        return booking.no_show()
+    
 
     # ---------- Internal helpers ----------
 
@@ -184,38 +202,4 @@ class BookingService:
                 booking.save()
             except IntegrityError as ex:
                 raise ValidationError({"non_field_errors": [str(ex)]})
-        return booking
-
-    @transaction.atomic
-    def _cancel_booking(self, booking: Booking, by: str):
-        """
-        Cancel the booking: set status, cancelled_at and mark booking as inactive.
-        Reject if already inactive.
-        """
-        # reject cancelling an already-inactive booking
-        self.ensure_active(booking)
-
-        booking.status = BookingStatus.CANCELLED_HOST if by == "host" else BookingStatus.CANCELLED_GUEST
-        booking.cancelled_at = timezone.now()
-        booking.is_active = False
-        # include is_active in update_fields so DB write includes it
-        try:
-            booking.save(update_fields=["status", "cancelled_at", "updated_at", "is_active"])
-        except IntegrityError as ex:
-            raise ValidationError({"non_field_errors": [str(ex)]})
-        return booking
-
-    @transaction.atomic
-    def _decide_booking(self, booking: Booking, decision: str):
-        # reject cancelling an already-inactive booking
-        self.ensure_active(booking)
-
-        booking.status = decision
-        booking.decision_at = timezone.now()
-        booking.is_active = decision == BookingStatus.ACCEPTED
-        # include is_active in update_fields so DB write includes it
-        try:
-            booking.save(update_fields=["status", "decision_at", "updated_at", "is_active"])
-        except IntegrityError as ex:
-            raise ValidationError({"non_field_errors": [str(ex)]})
         return booking
